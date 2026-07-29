@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新客拜訪回報系統</title>
+<style>
+  :root{
+    --ink:#16241F; --paper:#F4F6F2; --card:#FFFFFF;
+    --primary:#2F6B4F; --primary-dark:#1F4D38; --primary-light:#E4F0E7;
+    --warn:#B8452D; --warn-light:#FBE9E4; --line:#DCE3DC; --muted:#5C6B62;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Microsoft JhengHei",sans-serif;-webkit-font-smoothing:antialiased;}
+  .app{max-width:640px;margin:0 auto;min-height:100vh;background:var(--paper);}
+  header{padding:20px 20px 14px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:10;}
+  header h1{font-family:Georgia,"Iowan Old Style","Noto Serif TC",serif;font-size:21px;margin:0 0 2px;color:var(--primary-dark);}
+  header p{margin:0;font-size:12px;color:var(--muted);}
+  nav.tabs{display:flex;gap:2px;padding:10px 10px 0;background:var(--card);}
+  nav.tabs button{flex:1;padding:9px 0;border:none;background:transparent;font-size:12.5px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;cursor:pointer;}
+  nav.tabs button.active{color:var(--primary-dark);border-bottom-color:var(--primary);}
+  main{padding:16px 20px 60px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px;}
+  label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px;}
+  .req{color:var(--warn);}
+  input[type=text], input[type=date], input[type=password], input[type=file], select, textarea{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:15px;background:#fff;color:var(--ink);font-family:inherit;
+  }
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--primary);outline-offset:1px;}
+  .field{margin-bottom:16px;}
+  textarea{resize:vertical;min-height:60px;}
+  .toggle-row{display:flex;gap:10px;}
+  .toggle-btn{flex:1;padding:12px 0;border-radius:8px;border:1px solid var(--line);background:#fff;font-size:15px;font-weight:600;color:var(--muted);cursor:pointer;}
+  .toggle-btn.yes.active{background:var(--primary-light);border-color:var(--primary);color:var(--primary-dark);}
+  .toggle-btn.no.active{background:var(--warn-light);border-color:var(--warn);color:var(--warn);}
+  .toggle-btn.type.active{background:var(--primary-light);border-color:var(--primary);color:var(--primary-dark);}
+  .submit-btn, .primary-btn{width:100%;padding:14px 0;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:16px;font-weight:700;cursor:pointer;}
+  .submit-btn:disabled{opacity:0.6;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--primary-dark);color:#fff;padding:12px 20px;border-radius:30px;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,0.2);z-index:50;}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+  .stat-box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 10px;text-align:center;}
+  .stat-box .num{font-family:Georgia,serif;font-size:19px;font-weight:700;color:var(--primary-dark);}
+  .stat-box .lbl{font-size:10.5px;color:var(--muted);margin-top:2px;}
+  .section-title{font-size:14px;font-weight:700;margin:20px 0 8px;color:var(--ink);display:flex;align-items:center;gap:6px;}
+  .section-title .dot{width:7px;height:7px;border-radius:50%;background:var(--primary);display:inline-block;}
+  .flag-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border:1px solid var(--warn);background:var(--warn-light);border-radius:8px;margin-bottom:8px;gap:10px;}
+  .flag-row .store{font-weight:700;font-size:14px;}
+  .flag-row .meta{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .flag-row .streak{font-size:12px;font-weight:700;color:var(--warn);white-space:nowrap;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{text-align:left;padding:7px 5px;border-bottom:1px solid var(--line);}
+  th{color:var(--muted);font-weight:600;font-size:11px;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;}
+  .badge.ok{background:var(--primary-light);color:var(--primary-dark);}
+  .badge.no{background:var(--warn-light);color:var(--warn);}
+  .empty{text-align:center;color:var(--muted);font-size:13px;padding:30px 10px;}
+  .note{font-size:11.5px;color:var(--muted);margin-top:4px;line-height:1.5;}
+  .refresh-btn{background:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap;}
+  select.month-select{width:auto;display:inline-block;}
+  .lock-wrap{text-align:center;padding:36px 10px;}
+  .lock-wrap .icon{font-size:32px;margin-bottom:8px;}
+  .lock-wrap input{max-width:220px;margin:12px auto;text-align:center;}
+  .logout-btn{background:none;border:none;color:var(--warn);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;white-space:nowrap;}
+  .top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;}
+  .sp-row, .store-row{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+  .sp-row input, .store-row input{padding:8px 10px;font-size:13px;}
+  .input-error{border-color:var(--warn) !important;background:#FFF6F4 !important;}
+  button.input-error{background:#FFF6F4 !important;}
+  .field-error{color:var(--warn);font-size:12px;margin-top:6px;font-weight:600;}
+  .error-banner{background:var(--warn-light);border:1px solid var(--warn);color:var(--warn);padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:14px;font-weight:600;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>新客拜訪回報系統</h1>
+    <p>新客開發追蹤 · 資料提供給營業部統計追蹤,請如實填寫</p>
+  </header>
+  <nav class="tabs">
+    <button id="tabFormBtn" class="active">填寫紀錄</button>
+    <button id="tabMineBtn">我的成效</button>
+    <button id="tabAdminBtn">後台統計</button>
+    <button id="tabSettingsBtn">設定</button>
+  </nav>
+  <main id="main"></main>
+</div>
+<script>
+// ====== 設定常數 ======
+const DEFAULT_SALESPEOPLE = ['張田裕','劉自強','楊承舜','顏廷樨','林恩霆','陳峰毓','李靜宜','黃敬凱','范振軒'];
+const STORE_KEY_PREFIX = 'visit:';
+const PHOTO_KEY_PREFIX = 'photo:';
+
+// ====== 全域狀態 ======
+let allVisits = [];
+let settings = { adminPassword:'sales2026', salespeople:[...DEFAULT_SALESPEOPLE], personPins:{}, sheetWebhookUrl:'', sheetSyncEnabled:false };
+let formOrdered = null;
+let formOrderType = null;
+let pendingPhotoDataUrl = null;
+let myLastSalesperson = '';
+let adminUnlocked = false;
+let adminSelectedPerson = '';
+let mineSelectedName = '';
+let mineUnlocked = false;
+let monthState = { mine:'' };
+let storeMgmtPerson = '';
+let flaggedScopeVisits = {};
+
+// ====== settings storage ======
+async function loadSettings(){
+  const keys = ['adminPassword','salespeople','personPins','sheetWebhookUrl','sheetSyncEnabled'];
+  for(const k of keys){
+    try{
+      const r = await window.storage.get('settings:'+k, true);
+      if(r && r.value !== undefined) settings[k] = JSON.parse(r.value);
+    }catch(e){ /* key not set yet, keep default */ }
+  }
+}
+async function saveSetting(key, value){
+  settings[key] = value;
+  try{ await window.storage.set('settings:'+key, JSON.stringify(value), true); }
+  catch(e){ console.error('saveSetting failed', e); }
+}
+
+// ====== visit storage ======
+async function fetchAllVisits(){
+  try{
+    const listRes = await window.storage.list(STORE_KEY_PREFIX, true);
+    const keys = (listRes && listRes.keys) ? listRes.keys : [];
+    const values = await Promise.all(keys.map(async k=>{
+      try{
+        const r = await window.storage.get(k, true);
+        if(!r) return null;
+        const parsed = JSON.parse(r.value);
+        parsed._key = k;
+        return parsed;
+      }catch(e){ return null; }
+    }));
+    return values.filter(Boolean).sort((a,b)=> new Date(b.date) - new Date(a.date));
+  }catch(e){ console.error('fetchAllVisits error', e); return []; }
+}
+async function saveVisit(record, photoDataUrl){
+  const suffix = Date.now() + '-' + Math.random().toString(36).slice(2,8);
+  const id = STORE_KEY_PREFIX + suffix;
+  if(photoDataUrl){
+    const photoKey = PHOTO_KEY_PREFIX + suffix;
+    try{
+      await window.storage.set(photoKey, photoDataUrl, true);
+      record.hasPhoto = true; record.photoKey = photoKey;
+    }catch(e){ console.error('photo save failed', e); record.hasPhoto = false; record.photoKey = null; }
+  } else { record.hasPhoto = false; record.photoKey = null; }
+  const res = await window.storage.set(id, JSON.stringify(record), true);
+  if(!res) throw new Error('storage set failed');
+  record._key = id;
+  return record;
+}
+async function updateVisitRecord(v, patch){
+  const updated = {...v, ...patch};
+  delete updated._key;
+  try{ await window.storage.set(v._key, JSON.stringify(updated), true); }catch(e){ console.error(e); }
+}
+
+// ====== Google Sheet 同步(選填) ======
+function syncToSheet(record){
+  if(!settings.sheetSyncEnabled || !settings.sheetWebhookUrl) return;
+  fetch(settings.sheetWebhookUrl, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify({
+      salesperson: record.salesperson, date: record.date, store: record.store,
+      ordered: record.ordered, orderAmount: record.orderAmount || '', orderType: record.orderType || '',
+      noOrderNote: record.noOrderNote || '', products: record.products || '', notes: record.notes || '',
+      hasPhoto: !!record.hasPhoto
+    })
+  }).catch(e=>console.warn('sheet sync failed (non-blocking)', e));
+}
+
+// ====== utils ======
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function monthOf(dateStr){ return dateStr.slice(0,7); }
+function uniqueSorted(arr){ return [...new Set(arr)].sort(); }
+function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function getReasonText(v){ return v.noOrderNote || v.reason || ''; }
+function lastNMonths(n){
+  const arr=[]; const d=new Date(); d.setDate(1);
+  for(let i=0;i<n;i++){ arr.unshift(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); d.setMonth(d.getMonth()-1); }
+  return arr;
+}
+function storesForSalesperson(name){ return uniqueSorted(allVisits.filter(v=>v.salesperson===name).map(v=>v.store)); }
+function monthToIndex(m){ const parts = m.split('-').map(Number); return parts[0]*12 + parts[1]; }
+
+function buildStoreMonthMap(visits){
+  const map = {};
+  visits.forEach(v=>{
+    const m = monthOf(v.date);
+    if(!map[v.store]) map[v.store] = { months:{}, lastVisit:v.date, lastReason:getReasonText(v), lastSalesperson:v.salesperson };
+    const entry = map[v.store];
+    if(!entry.months[m]) entry.months[m] = { ordered:false };
+    if(v.ordered) entry.months[m].ordered = true;
+    if(new Date(v.date) >= new Date(entry.lastVisit)){ entry.lastVisit=v.date; entry.lastReason=getReasonText(v); entry.lastSalesperson=v.salesperson; }
+  });
+  return map;
+}
+function computeStreaks(map){
+  const results = [];
+  Object.entries(map).forEach(([store, data])=>{
+    const months = Object.keys(data.months).sort();
+    // walk backward from most recent month, collecting a trailing run of not-ordered months
+    const trailing = [];
+    for(let i=months.length-1;i>=0;i--){
+      if(data.months[months[i]].ordered) break;
+      trailing.unshift(months[i]);
+    }
+    if(trailing.length >= 2){
+      let consecutive = true;
+      for(let i=1;i<trailing.length;i++){
+        if(monthToIndex(trailing[i]) - monthToIndex(trailing[i-1]) !== 1){ consecutive = false; break; }
+      }
+      results.push({ store, count: trailing.length, consecutive, lastVisit:data.lastVisit, lastReason:data.lastReason, lastSalesperson:data.lastSalesperson });
+    }
+  });
+  return results.sort((a,b)=> b.count - a.count);
+}
+function newStoreCountsByMonths(visits, monthsList){
+  const firstMonth = {};
+  visits.forEach(v=>{ const m = monthOf(v.date); if(!firstMonth[v.store] || m < firstMonth[v.store]) firstMonth[v.store] = m; });
+  return monthsList.map(m => Object.values(firstMonth).filter(fm=>fm===m).length);
+}
+function rangeSummary(visits, monthsList){
+  const filtered = visits.filter(v=> monthsList.includes(monthOf(v.date)));
+  return {
+    visitCount: filtered.length,
+    storeCount: uniqueSorted(filtered.map(v=>v.store)).length,
+    orderedStoreCount: new Set(filtered.filter(v=>v.ordered).map(v=>v.store)).size,
+    filtered
+  };
+}
+function storeRowsForMonths(visits, monthsList, showSalesperson){
+  const filtered = visits.filter(v=>monthsList.includes(monthOf(v.date))).slice().sort((a,b)=> new Date(a.date)-new Date(b.date));
+  const map = {};
+  filtered.forEach(v=>{
+    const key = v.store + (showSalesperson ? ('||'+v.salesperson) : '');
+    if(!map[key]) map[key] = { store:v.store, salesperson:v.salesperson, count:0, ordered:false, lastReason:'', photoKey:null };
+    map[key].count++;
+    if(v.ordered) map[key].ordered = true;
+    if(!v.ordered) map[key].lastReason = getReasonText(v) || map[key].lastReason;
+    if(v.hasPhoto && v.photoKey) map[key].photoKey = v.photoKey;
+  });
+  return Object.values(map).sort((a,b)=> b.count - a.count);
+}
+function lineChartSVG(labels, values){
+  const w=600,h=180,padL=30,padR=14,padT=18,padB=26;
+  const maxV = Math.max(1, ...values);
+  const stepX = (w-padL-padR)/Math.max(1, labels.length-1);
+  const points = values.map((v,i)=>{
+    const x = padL + i*stepX;
+    const y = padT + (h-padT-padB) * (1 - v/maxV);
+    return [x,y];
+  });
+  const pathD = points.map((p,i)=> (i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  const dots = points.map((p,i)=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="#1F4D38"></circle><text x="${p[0].toFixed(1)}" y="${(p[1]-8).toFixed(1)}" font-size="10" text-anchor="middle" fill="#1F4D38">${values[i]}</text>`).join('');
+  const xLabels = labels.map((l,i)=>`<text x="${points[i][0].toFixed(1)}" y="${h-8}" font-size="10" text-anchor="middle" fill="#5C6B62">${l}</text>`).join('');
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h-padB}" stroke="#DCE3DC"/>
+    <line x1="${padL}" y1="${h-padB}" x2="${w-padR}" y2="${h-padB}" stroke="#DCE3DC"/>
+    <path d="${pathD}" fill="none" stroke="#2F6B4F" stroke-width="2.5"/>
+    ${dots}${xLabels}
+  </svg>`;
+}
+function detailTableHTML(rows, showSalesperson){
+  if(!rows.length) return '<div class="empty">尚無資料</div>';
+  return `<table>
+    <thead><tr>
+      <th>店家</th>${showSalesperson?'<th>業務</th>':''}<th>拜訪次數</th><th>狀態</th><th>未進貨原因</th><th>照片</th>
+    </tr></thead>
+    <tbody>
+      ${rows.map(r=>`
+        <tr>
+          <td>${escapeHtml(r.store)}</td>
+          ${showSalesperson?`<td>${escapeHtml(r.salesperson)}</td>`:''}
+          <td>${r.count}</td>
+          <td>${r.ordered?'<span class="badge ok">有進貨</span>':'<span class="badge no">未進貨</span>'}</td>
+          <td>${escapeHtml(r.ordered?'-':(r.lastReason||'-'))}</td>
+          <td>${r.photoKey?`<button class="refresh-btn view-photo-btn" data-key="${r.photoKey}">查看</button>`:'-'}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>`;
+}
+function bindPhotoButtons(){
+  document.querySelectorAll('.view-photo-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const key = btn.dataset.key;
+      const orig = btn.textContent; btn.textContent = '...';
+      try{ const r = await window.storage.get(key, true); if(r) openPhotoModal(r.value); }
+      catch(e){ alert('照片讀取失敗'); }
+      btn.textContent = orig;
+    });
+  });
+}
+function openPhotoModal(dataUrl){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;';
+  overlay.innerHTML = `<img src="${dataUrl}" style="max-width:100%;max-height:100%;border-radius:8px;">`;
+  overlay.addEventListener('click', ()=>overlay.remove());
+  document.body.appendChild(overlay);
+}
+function resizeImageFile(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        const maxDim = 1000;
+        let w=img.width, h=img.height;
+        if(w>=h && w>maxDim){ h=Math.round(h*maxDim/w); w=maxDim; }
+        else if(h>w && h>maxDim){ w=Math.round(w*maxDim/h); h=maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function showToast(msg){
+  const t = document.createElement('div'); t.className='toast'; t.textContent=msg;
+  document.body.appendChild(t); setTimeout(()=>t.remove(), 2200);
+}
+
+// ====== 警示區塊(含拜訪紀錄查看) ======
+function flaggedHTML(visits, ns, showSalesperson){
+  flaggedScopeVisits[ns] = visits;
+  const flagged = computeStreaks(buildStoreMonthMap(visits));
+  return `
+    <div class="section-title"><span class="dot" style="background:var(--warn);"></span>警示:多月拜訪皆未進貨的店家</div>
+    <div>
+      ${flagged.length ? flagged.map(f=>`
+        <div class="flag-row">
+          <div>
+            <div class="store">${escapeHtml(f.store)}</div>
+            <div class="meta">${showSalesperson ? ('業務:'+escapeHtml(f.lastSalesperson)+' · ') : ''}最近拜訪 ${f.lastVisit} · 原因:${escapeHtml(f.lastReason||'未填')}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+            <div class="streak">${f.consecutive ? ('連續 '+f.count+' 個月未進貨') : ('近 '+f.count+' 個月拜訪皆未進貨(非連續)')}</div>
+            <button class="refresh-btn view-history-btn" data-ns="${ns}" data-store="${escapeHtml(f.store)}">查看紀錄</button>
+          </div>
+        </div>
+      `).join('') : '<div class="empty">目前沒有多月未進貨的店家</div>'}
+    </div>
+  `;
+}
+function bindFlaggedButtons(){
+  document.querySelectorAll('.view-history-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const ns = btn.dataset.ns, store = btn.dataset.store;
+      const visits = flaggedScopeVisits[ns] || [];
+      const history = visits.filter(v=>v.store===store).slice().sort((a,b)=> new Date(b.date)-new Date(a.date));
+      openHistoryModal(store, history);
+    });
+  });
+}
+function openHistoryModal(storeName, records){
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:10px;max-width:420px;width:100%;max-height:80vh;overflow:auto;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-weight:700;font-size:15px;">${escapeHtml(storeName)} 拜訪紀錄</div>
+        <button class="logout-btn" id="closeHistoryModal">關閉</button>
+      </div>
+      ${records.length ? records.map(r=>`
+        <div style="border-bottom:1px solid var(--line);padding:8px 0;font-size:12.5px;">
+          <div style="font-weight:600;">${r.date} · ${escapeHtml(r.salesperson)}</div>
+          <div style="margin-top:2px;">${r.ordered ? '<span class="badge ok">有進貨</span>' : '<span class="badge no">未進貨</span>'} ${r.ordered ? (r.orderAmount ? ('$'+r.orderAmount+' · '+escapeHtml(r.orderType||'')) : '') : escapeHtml(getReasonText(r))}</div>
+        </div>
+      `).join('') : '<div class="empty">尚無紀錄</div>'}
+    </div>
+  `;
+  overlay.addEventListener('click', (e)=>{ if(e.target===overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  document.getElementById('closeHistoryModal').addEventListener('click', ()=>overlay.remove());
+}
+
+// ====== tabs ======
+function switchTab(tab){
+  document.getElementById('tabFormBtn').classList.toggle('active', tab==='form');
+  document.getElementById('tabMineBtn').classList.toggle('active', tab==='mine');
+  document.getElementById('tabAdminBtn').classList.toggle('active', tab==='admin');
+  document.getElementById('tabSettingsBtn').classList.toggle('active', tab==='settings');
+  if(tab==='form') renderForm();
+  else if(tab==='mine') renderMine();
+  else if(tab==='admin') renderAdmin();
+  else renderSettings();
+}
+document.getElementById('tabFormBtn').addEventListener('click', ()=>switchTab('form'));
+document.getElementById('tabMineBtn').addEventListener('click', ()=>switchTab('mine'));
+document.getElementById('tabAdminBtn').addEventListener('click', ()=>switchTab('admin'));
+document.getElementById('tabSettingsBtn').addEventListener('click', ()=>switchTab('settings'));
+
+// ====== 填寫紀錄 ======
+function renderForm(){
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="card">
+      <div id="formErrorBanner" class="error-banner" style="display:none;"></div>
+      <div class="field">
+        <label>業務姓名 <span class="req">*</span></label>
+        <select id="fSalesperson">
+          <option value="">請選擇</option>
+          ${settings.salespeople.map(s=>`<option value="${escapeHtml(s)}" ${s===myLastSalesperson?'selected':''}>${escapeHtml(s)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>拜訪日期 <span class="req">*</span></label>
+        <input type="date" id="fDate" value="${todayStr()}">
+      </div>
+      <div class="field">
+        <label>店家名稱 <span class="req">*</span></label>
+        <select id="fStoreSelect"><option value="">請先選擇業務姓名</option></select>
+        <input type="text" id="fStoreNew" placeholder="輸入新店家名稱" style="display:none;margin-top:8px;">
+        <div class="note">下拉選單只會列出你自己拜訪過的店家,避免同一間店打字不一致被視為不同間。</div>
+      </div>
+      <div class="field">
+        <label>本次拜訪後是否成功進貨 <span class="req">*</span></label>
+        <div class="toggle-row">
+          <button type="button" class="toggle-btn yes" id="btnYes">✓ 成功進貨</button>
+          <button type="button" class="toggle-btn no" id="btnNo">✕ 未進貨</button>
+        </div>
+      </div>
+      <div class="field" id="orderYesField" style="display:none;">
+        <label>進貨金額(元) <span class="req">*</span></label>
+        <input type="text" id="fOrderAmount" inputmode="numeric" placeholder="例如:15000">
+        <div class="note" style="margin:10px 0 6px;">進貨類型 <span class="req">*</span></div>
+        <div class="toggle-row">
+          <button type="button" class="toggle-btn type" id="btnTypeCut">切口</button>
+          <button type="button" class="toggle-btn type" id="btnTypeSporadic">零星</button>
+        </div>
+      </div>
+      <div class="field" id="orderNoField" style="display:none;">
+        <label>未進貨原因說明 <span class="req">*</span></label>
+        <textarea id="fNoOrderNote" placeholder="請輸入原因"></textarea>
+        <div class="note">可包含:評估的原因(例如價格)、同性質商品他們進了什麼比我們好賣...</div>
+      </div>
+      <div class="field">
+        <label>推薦產品</label>
+        <input type="text" id="fProducts" placeholder="例如:A產品, B產品(可多項,用逗號分隔)">
+      </div>
+      <div class="field">
+        <label>現場照片 <span class="req">*</span></label>
+        <input type="file" id="fPhoto" accept="image/*" capture="environment">
+        <div id="photoPreviewWrap"></div>
+      </div>
+      <div class="field">
+        <label>備註(選填)</label>
+        <textarea id="fNotes" placeholder="其他想記錄的事項"></textarea>
+      </div>
+      <button class="submit-btn" id="submitBtn">送出回報</button>
+    </div>
+  `;
+
+  updateStoreOptions(myLastSalesperson);
+
+  document.getElementById('fSalesperson').addEventListener('change', (e)=> updateStoreOptions(e.target.value));
+  document.getElementById('fStoreSelect').addEventListener('change', (e)=>{
+    document.getElementById('fStoreNew').style.display = e.target.value==='__new__' ? 'block' : 'none';
+  });
+  document.getElementById('btnYes').addEventListener('click', ()=>{
+    formOrdered = true;
+    document.getElementById('btnYes').classList.add('active');
+    document.getElementById('btnNo').classList.remove('active');
+    document.getElementById('orderYesField').style.display = 'block';
+    document.getElementById('orderNoField').style.display = 'none';
+  });
+  document.getElementById('btnNo').addEventListener('click', ()=>{
+    formOrdered = false;
+    document.getElementById('btnNo').classList.add('active');
+    document.getElementById('btnYes').classList.remove('active');
+    document.getElementById('orderNoField').style.display = 'block';
+    document.getElementById('orderYesField').style.display = 'none';
+  });
+  document.getElementById('btnTypeCut').addEventListener('click', ()=>{
+    formOrderType='切口';
+    document.getElementById('btnTypeCut').classList.add('active');
+    document.getElementById('btnTypeSporadic').classList.remove('active');
+  });
+  document.getElementById('btnTypeSporadic').addEventListener('click', ()=>{
+    formOrderType='零星';
+    document.getElementById('btnTypeSporadic').classList.add('active');
+    document.getElementById('btnTypeCut').classList.remove('active');
+  });
+  document.getElementById('fPhoto').addEventListener('change', async (e)=>{
+    const file = e.target.files[0];
+    const wrap = document.getElementById('photoPreviewWrap');
+    if(!file){ pendingPhotoDataUrl=null; wrap.innerHTML=''; return; }
+    wrap.innerHTML = '<div class="note">處理照片中...</div>';
+    try{
+      const dataUrl = await resizeImageFile(file);
+      pendingPhotoDataUrl = dataUrl;
+      wrap.innerHTML = `<img src="${dataUrl}" style="max-width:140px;border-radius:8px;margin-top:8px;display:block;"><button type="button" class="logout-btn" id="removePhotoBtn" style="margin-top:6px;">移除照片</button>`;
+      document.getElementById('removePhotoBtn').addEventListener('click', ()=>{
+        pendingPhotoDataUrl=null; document.getElementById('fPhoto').value=''; wrap.innerHTML='';
+      });
+    }catch(err){ console.error(err); wrap.innerHTML='<div class="note">照片處理失敗,請重新選擇</div>'; pendingPhotoDataUrl=null; }
+  });
+  document.getElementById('submitBtn').addEventListener('click', handleSubmit);
+
+  main.addEventListener('input', (e)=>{ if(e.target.classList) e.target.classList.remove('input-error'); });
+  main.addEventListener('change', (e)=>{ if(e.target.classList) e.target.classList.remove('input-error'); });
+  main.addEventListener('click', (e)=>{ if(e.target.tagName==='BUTTON' && e.target.id!=='submitBtn') e.target.classList.remove('input-error'); });
+}
+function updateStoreOptions(name){
+  const sel = document.getElementById('fStoreSelect');
+  if(!name){ sel.innerHTML = '<option value="">請先選擇業務姓名</option>'; return; }
+  const stores = storesForSalesperson(name);
+  sel.innerHTML = '<option value="">請選擇店家</option>'
+    + stores.map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('')
+    + '<option value="__new__">+ 新增店家(輸入新名稱)</option>';
+}
+async function handleSubmit(){
+  const salesperson = document.getElementById('fSalesperson').value;
+  const date = document.getElementById('fDate').value;
+  const storeSelectVal = document.getElementById('fStoreSelect').value;
+  const storeNewVal = document.getElementById('fStoreNew').value.trim();
+  const store = storeSelectVal === '__new__' ? storeNewVal : storeSelectVal;
+  const products = document.getElementById('fProducts').value.trim();
+  const notes = document.getElementById('fNotes').value.trim();
+
+  clearFormErrors();
+  const errors = [];
+  if(!salesperson){ errors.push('業務姓名'); markFieldError('fSalesperson'); }
+  if(!date){ errors.push('拜訪日期'); markFieldError('fDate'); }
+  if(!store){ errors.push('店家名稱'); markFieldError(storeSelectVal==='__new__' ? 'fStoreNew' : 'fStoreSelect'); }
+  if(!pendingPhotoDataUrl){ errors.push('現場照片'); markFieldError('fPhoto'); }
+  if(formOrdered === null){ errors.push('本次拜訪後是否成功進貨'); markFieldError('btnYes'); markFieldError('btnNo'); }
+
+  let orderAmount=null, orderType=null, noOrderNote=null;
+  if(formOrdered === true){
+    const amtRaw = document.getElementById('fOrderAmount').value.trim();
+    const amt = Number(amtRaw.replace(/[^0-9.]/g,''));
+    if(!amt || amt<=0){ errors.push('進貨金額'); markFieldError('fOrderAmount'); }
+    else orderAmount = amt;
+    if(!formOrderType){ errors.push('進貨類型(切口/零星)'); markFieldError('btnTypeCut'); markFieldError('btnTypeSporadic'); }
+    else orderType = formOrderType;
+  } else if(formOrdered === false){
+    noOrderNote = document.getElementById('fNoOrderNote').value.trim();
+    if(!noOrderNote){ errors.push('未進貨原因說明'); markFieldError('fNoOrderNote'); }
+    else orderType = null;
+  }
+
+  if(errors.length){ showFormErrors(errors); return; }
+
+  const record = { salesperson, date, store, ordered:formOrdered, orderAmount, orderType, noOrderNote, products, notes, createdAt:new Date().toISOString() };
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled=true; btn.textContent='送出中...';
+  try{
+    const saved = await saveVisit(record, pendingPhotoDataUrl);
+    allVisits.unshift(saved);
+    myLastSalesperson = salesperson;
+    syncToSheet(saved);
+    showToast('已送出拜訪回報');
+    formOrdered=null; formOrderType=null; pendingPhotoDataUrl=null;
+    renderForm();
+  }catch(e){
+    console.error(e);
+    showFormErrors(['送出失敗,請檢查網路後重試']);
+    btn.disabled=false; btn.textContent='送出回報';
+  }
+}
+function markFieldError(id){
+  const el = document.getElementById(id);
+  if(el) el.classList.add('input-error');
+}
+function clearFormErrors(){
+  document.querySelectorAll('#main .input-error').forEach(el=>el.classList.remove('input-error'));
+  const banner = document.getElementById('formErrorBanner');
+  if(banner){ banner.style.display='none'; banner.innerHTML=''; }
+}
+function showFormErrors(messages){
+  const banner = document.getElementById('formErrorBanner');
+  if(!banner) return;
+  banner.innerHTML = '請完成以下必填欄位:<br>' + messages.map(m=>'· '+escapeHtml(m)).join('<br>');
+  banner.style.display = 'block';
+  banner.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ====== 統計面板共用 ======
+function bindStatsEvents(ns, rerenderFn){
+  const sel = document.querySelector(`.month-select[data-ns="${ns}"]`);
+  if(sel) sel.addEventListener('change', (e)=>{ monthState[ns] = e.target.value; rerenderFn(); });
+  const refreshBtn = document.querySelector(`[data-refresh="${ns}"]`);
+  if(refreshBtn) refreshBtn.addEventListener('click', async ()=>{
+    refreshBtn.textContent='載入中...'; allVisits = await fetchAllVisits(); rerenderFn();
+  });
+}
+function statHeaderHTML(ns, monthOptions, selMonth){
+  return `
+    <div class="card top-bar">
+      <div>
+        <label style="margin-bottom:4px;">檢視月份</label>
+        <select class="month-select" data-ns="${ns}">
+          ${monthOptions.map(m=>`<option value="${m}" ${m===selMonth?'selected':''}>${m}</option>`).join('')}
+        </select>
+      </div>
+      <button class="refresh-btn" data-refresh="${ns}">重新整理</button>
+    </div>
+  `;
+}
+
+// ====== 我的成效 ======
+function renderMineStatsHTML(visits){
+  const months3 = lastNMonths(3);
+  const summary3 = rangeSummary(visits, months3);
+  const chart = lineChartSVG(months3.map(m=>m.slice(5)+'月'), newStoreCountsByMonths(visits, months3));
+
+  const ns='mine';
+  const months = uniqueSorted(visits.map(v=>monthOf(v.date)));
+  const monthOptions = months.length ? months : [monthOf(todayStr())];
+  if(!monthOptions.includes(monthState[ns])) monthState[ns] = monthOptions[monthOptions.length-1];
+  const selMonth = monthState[ns];
+  const summaryMonth = rangeSummary(visits, [selMonth]);
+  const rows = storeRowsForMonths(visits, [selMonth], false);
+
+  return `
+    <div class="stat-grid">
+      <div class="stat-box"><div class="num">${summary3.visitCount}</div><div class="lbl">近3個月拜訪無帳客戶次數</div></div>
+      <div class="stat-box"><div class="num">${summary3.storeCount}</div><div class="lbl">近3個月拜訪店家數</div></div>
+      <div class="stat-box"><div class="num">${summary3.orderedStoreCount}</div><div class="lbl">近3個月成功進貨家數</div></div>
+    </div>
+    <div class="section-title" style="margin-top:0;"><span class="dot"></span>近3個月新店家拜訪趨勢</div>
+    <div class="card">${chart}</div>
+    ${flaggedHTML(visits, 'mine', false)}
+
+    <div class="section-title"><span class="dot"></span>依月份查詢明細</div>
+    ${statHeaderHTML(ns, monthOptions, selMonth)}
+    <div class="stat-grid">
+      <div class="stat-box"><div class="num">${summaryMonth.visitCount}</div><div class="lbl">當月拜訪次數</div></div>
+      <div class="stat-box"><div class="num">${summaryMonth.storeCount}</div><div class="lbl">當月拜訪店家數</div></div>
+      <div class="stat-box"><div class="num">${summaryMonth.orderedStoreCount}</div><div class="lbl">當月成功進貨家數</div></div>
+    </div>
+    <div class="card">${detailTableHTML(rows, false)}</div>
+  `;
+}
+function renderMine(){
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="card">
+      <label>選擇你的姓名</label>
+      <select id="mineSelect">
+        <option value="">請選擇</option>
+        ${settings.salespeople.map(s=>`<option value="${escapeHtml(s)}" ${s===mineSelectedName?'selected':''}>${escapeHtml(s)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="mineAuthWrap"></div>
+    <div id="minePanel"></div>
+  `;
+  document.getElementById('mineSelect').addEventListener('change', (e)=>{
+    mineSelectedName = e.target.value; mineUnlocked = false; renderMineAuth();
+  });
+  renderMineAuth();
+
+  function renderMineAuth(){
+    const authWrap = document.getElementById('mineAuthWrap');
+    const panel = document.getElementById('minePanel');
+    if(!mineSelectedName){ authWrap.innerHTML=''; panel.innerHTML='<div class="empty">請先選擇你的姓名</div>'; return; }
+    if(mineUnlocked){
+      authWrap.innerHTML = `<div class="card top-bar"><div class="note">已登入:${escapeHtml(mineSelectedName)}</div><button class="logout-btn" id="mineLogoutBtn">登出</button></div>`;
+      document.getElementById('mineLogoutBtn').addEventListener('click', ()=>{ mineUnlocked=false; renderMineAuth(); });
+      renderMinePanel();
+      return;
+    }
+    authWrap.innerHTML = `
+      <div class="card lock-wrap">
+        <div class="icon">🔒</div>
+        <div style="font-weight:700;">請輸入你的個人密碼</div>
+        <div class="note">忘記密碼請洽主管在後台「設定」重設為 0000</div>
+        <input type="password" id="minePwd" placeholder="輸入個人密碼">
+        <div id="minePwdError" class="field-error" style="display:none;"></div>
+        <button class="primary-btn" id="mineLoginBtn" style="max-width:220px;margin:8px auto 0;">登入</button>
+      </div>
+    `;
+    panel.innerHTML = '';
+    document.getElementById('mineLoginBtn').addEventListener('click', tryLogin);
+    document.getElementById('minePwd').addEventListener('keydown', (e)=>{ if(e.key==='Enter') tryLogin(); });
+    document.getElementById('minePwd').addEventListener('input', ()=>{
+      document.getElementById('minePwd').classList.remove('input-error');
+      document.getElementById('minePwdError').style.display='none';
+    });
+    function tryLogin(){
+      const pwd = document.getElementById('minePwd').value;
+      const correct = settings.personPins[mineSelectedName] || '0000';
+      if(pwd === correct){ mineUnlocked=true; renderMineAuth(); }
+      else{
+        document.getElementById('minePwd').classList.add('input-error');
+        const err = document.getElementById('minePwdError');
+        err.textContent = '密碼錯誤,如忘記密碼請洽營業部協助重置';
+        err.style.display = 'block';
+      }
+    }
+  }
+  function renderMinePanel(){
+    const panel = document.getElementById('minePanel');
+    const myVisits = allVisits.filter(v=>v.salesperson===mineSelectedName);
+    panel.innerHTML = `
+      <div class="card">
+        <div class="section-title" style="margin-top:0;"><span class="dot"></span>修改我的密碼</div>
+        <div class="field"><input type="password" id="mineNewPwd" placeholder="輸入新密碼"></div>
+        <button class="primary-btn" id="mineSavePwdBtn">更新密碼</button>
+      </div>
+      ${renderMineStatsHTML(myVisits)}
+    `;
+    document.getElementById('mineSavePwdBtn').addEventListener('click', async ()=>{
+      const val = document.getElementById('mineNewPwd').value.trim();
+      if(!val){ alert('請輸入新密碼'); return; }
+      const pins = {...settings.personPins}; pins[mineSelectedName] = val;
+      await saveSetting('personPins', pins);
+      showToast('密碼已更新'); document.getElementById('mineNewPwd').value='';
+    });
+    bindStatsEvents('mine', renderMinePanel);
+    bindPhotoButtons();
+    bindFlaggedButtons();
+  }
+}
+
+// ====== 後台統計 ======
+function renderAdminLocked(afterUnlockFn){
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="card lock-wrap">
+      <div class="icon">🔒</div>
+      <div style="font-weight:700;margin-bottom:4px;">此頁面為後台限定</div>
+      <div class="note">請輸入後台密碼</div>
+      <input type="password" id="adminPwd" placeholder="輸入密碼">
+      <div id="adminPwdError" class="field-error" style="display:none;"></div>
+      <button class="primary-btn" id="adminLoginBtn" style="max-width:220px;margin:8px auto 0;">登入</button>
+    </div>
+  `;
+  document.getElementById('adminLoginBtn').addEventListener('click', tryLogin);
+  document.getElementById('adminPwd').addEventListener('keydown', (e)=>{ if(e.key==='Enter') tryLogin(); });
+  document.getElementById('adminPwd').addEventListener('input', ()=>{
+    document.getElementById('adminPwd').classList.remove('input-error');
+    document.getElementById('adminPwdError').style.display='none';
+  });
+  function tryLogin(){
+    const pwd = document.getElementById('adminPwd').value;
+    if(pwd === settings.adminPassword){ adminUnlocked=true; afterUnlockFn(); }
+    else{
+      document.getElementById('adminPwd').classList.add('input-error');
+      const err = document.getElementById('adminPwdError');
+      err.textContent = '密碼錯誤,如忘記密碼請洽營業部協助重置';
+      err.style.display = 'block';
+    }
+  }
+}
+function renderAdminOverviewHTML(visits){
+  const months6 = lastNMonths(6);
+  const summary6 = rangeSummary(visits, months6);
+  const chart = lineChartSVG(months6.map(m=>m.slice(5)+'月'), newStoreCountsByMonths(visits, months6));
+  return `
+    <div class="stat-grid">
+      <div class="stat-box"><div class="num">${summary6.visitCount}</div><div class="lbl">近6個月拜訪無帳客戶次數</div></div>
+      <div class="stat-box"><div class="num">${summary6.storeCount}</div><div class="lbl">近6個月拜訪店家數</div></div>
+      <div class="stat-box"><div class="num">${summary6.orderedStoreCount}</div><div class="lbl">近6個月成功進貨家數</div></div>
+    </div>
+    <div class="section-title" style="margin-top:0;"><span class="dot"></span>近6個月新店家拜訪趨勢</div>
+    <div class="card">${chart}</div>
+    ${flaggedHTML(visits, 'admin', true)}
+  `;
+}
+function renderAdmin(){
+  if(!adminUnlocked){ renderAdminLocked(renderAdmin); return; }
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="card top-bar">
+      <div style="font-weight:700;">後台統計(整體)</div>
+      <div style="display:flex;gap:8px;">
+        <button class="refresh-btn" id="adminRefreshBtn">重新整理</button>
+        <button class="logout-btn" id="adminLogoutBtn">登出後台</button>
+      </div>
+    </div>
+    <div id="adminOverview">${renderAdminOverviewHTML(allVisits)}</div>
+
+    <div class="section-title" style="margin-top:26px;"><span class="dot"></span>依業務員查看明細(近3個月)</div>
+    <div class="card">
+      <label>選擇業務員</label>
+      <select id="adminPersonSelect">
+        <option value="">請選擇</option>
+        ${settings.salespeople.map(s=>`<option value="${escapeHtml(s)}" ${s===adminSelectedPerson?'selected':''}>${escapeHtml(s)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="adminPersonPanel"></div>
+  `;
+  document.getElementById('adminLogoutBtn').addEventListener('click', ()=>{ adminUnlocked=false; switchTab('form'); });
+  document.getElementById('adminRefreshBtn').addEventListener('click', async ()=>{
+    document.getElementById('adminRefreshBtn').textContent='載入中...';
+    allVisits = await fetchAllVisits();
+    renderAdmin();
+  });
+  bindFlaggedButtons();
+
+  document.getElementById('adminPersonSelect').addEventListener('change', (e)=>{
+    adminSelectedPerson = e.target.value;
+    renderAdminPersonPanel();
+  });
+  renderAdminPersonPanel();
+
+  function renderAdminPersonPanel(){
+    const panel = document.getElementById('adminPersonPanel');
+    if(!adminSelectedPerson){ panel.innerHTML = '<div class="empty">請選擇業務員以檢視個人近3個月明細</div>'; return; }
+    const personVisits = allVisits.filter(v=>v.salesperson===adminSelectedPerson);
+    const months3 = lastNMonths(3);
+    const summary3 = rangeSummary(personVisits, months3);
+    const rows = storeRowsForMonths(personVisits, months3, false);
+    panel.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-box"><div class="num">${summary3.visitCount}</div><div class="lbl">近3個月拜訪次數</div></div>
+        <div class="stat-box"><div class="num">${summary3.storeCount}</div><div class="lbl">近3個月拜訪店家數</div></div>
+        <div class="stat-box"><div class="num">${summary3.orderedStoreCount}</div><div class="lbl">近3個月成功進貨家數</div></div>
+      </div>
+      <div class="card">${detailTableHTML(rows, false)}</div>
+    `;
+    bindPhotoButtons();
+  }
+}
+
+// ====== 設定 ======
+function renderSettings(){
+  if(!adminUnlocked){ renderAdminLocked(renderSettings); return; }
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="card top-bar">
+      <div style="font-weight:700;">系統設定</div>
+      <button class="logout-btn" id="settingsLogoutBtn">登出後台</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="margin-top:0;"><span class="dot"></span>修改後台密碼</div>
+      <div class="field"><input type="password" id="newAdminPwd" placeholder="輸入新密碼"></div>
+      <button class="primary-btn" id="saveAdminPwdBtn">更新密碼</button>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="margin-top:0;"><span class="dot"></span>業務人員管理</div>
+      <div id="salespeopleList"></div>
+      <div class="field" style="margin-top:12px;">
+        <label>新增業務姓名</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="newSalespersonName" placeholder="輸入姓名" style="flex:1;">
+          <button class="refresh-btn" id="addSalespersonBtn">新增</button>
+        </div>
+      </div>
+      <div class="note">業務可自行在「我的成效」修改密碼,你不會看到內容;若他們忘記密碼,按「重設密碼」即可設回 0000。</div>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="margin-top:0;"><span class="dot"></span>店家名稱管理(依業務員分類,修正打錯的店名)</div>
+      <div id="storeListWrap"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="margin-top:0;"><span class="dot"></span>Google 表單串接(選填)</div>
+      <div class="note">部署 Google Apps Script 後,將產生的網址貼在下方,即可讓每筆拜訪紀錄自動同步一份到 Google Sheet(依業務姓名分頁存檔)。</div>
+      <div class="field" style="margin-top:10px;">
+        <label>Apps Script 網址</label>
+        <input type="text" id="sheetUrlInput" placeholder="https://script.google.com/macros/s/xxx/exec" value="${escapeHtml(settings.sheetWebhookUrl)}">
+      </div>
+      <div class="field" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="sheetSyncToggle" style="width:auto;" ${settings.sheetSyncEnabled?'checked':''}>
+        <label style="margin:0;">啟用自動同步</label>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="primary-btn" id="saveSheetBtn">儲存設定</button>
+        <button class="refresh-btn" id="testSheetBtn">測試連線</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('settingsLogoutBtn').addEventListener('click', ()=>{ adminUnlocked=false; switchTab('form'); });
+  document.getElementById('saveAdminPwdBtn').addEventListener('click', async ()=>{
+    const val = document.getElementById('newAdminPwd').value.trim();
+    if(!val){ alert('請輸入新密碼'); return; }
+    await saveSetting('adminPassword', val);
+    showToast('密碼已更新'); document.getElementById('newAdminPwd').value='';
+  });
+  document.getElementById('addSalespersonBtn').addEventListener('click', async ()=>{
+    const nameInput = document.getElementById('newSalespersonName');
+    const name = nameInput.value.trim();
+    if(!name) return;
+    if(settings.salespeople.includes(name)){ alert('此姓名已存在'); return; }
+    await saveSetting('salespeople', [...settings.salespeople, name]);
+    renderSettings();
+  });
+  document.getElementById('saveSheetBtn').addEventListener('click', async ()=>{
+    const url = document.getElementById('sheetUrlInput').value.trim();
+    const enabled = document.getElementById('sheetSyncToggle').checked;
+    await saveSetting('sheetWebhookUrl', url);
+    await saveSetting('sheetSyncEnabled', enabled);
+    showToast('已儲存 Google 表單設定');
+  });
+  document.getElementById('testSheetBtn').addEventListener('click', async ()=>{
+    const url = document.getElementById('sheetUrlInput').value.trim();
+    if(!url){ alert('請先輸入網址'); return; }
+    try{
+      await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body: JSON.stringify({ salesperson:'測試', date: todayStr(), store:'測試店家', ordered:true, orderAmount:100, orderType:'零星', noOrderNote:'', products:'測試產品', notes:'這是測試資料', hasPhoto:false }) });
+      showToast('已送出測試資料,請至 Google Sheet 確認');
+    }catch(e){ console.error(e); alert('連線失敗,請確認網址是否正確、Apps Script 是否已部署為「所有人」可存取'); }
+  });
+
+  renderSalespeopleRows();
+  renderStoreRows();
+}
+function renderSalespeopleRows(){
+  const wrap = document.getElementById('salespeopleList');
+  wrap.innerHTML = settings.salespeople.length ? settings.salespeople.map(name=>`
+    <div class="sp-row">
+      <input type="text" class="sp-name" value="${escapeHtml(name)}" style="flex:1.4;min-width:110px;">
+      <button class="refresh-btn sp-save" data-name="${escapeHtml(name)}">儲存姓名</button>
+      <button class="refresh-btn sp-reset" data-name="${escapeHtml(name)}">重設密碼</button>
+      <button class="logout-btn sp-del" data-name="${escapeHtml(name)}">刪除</button>
+    </div>
+  `).join('') : '<div class="empty">尚無業務人員</div>';
+
+  wrap.querySelectorAll('.sp-save').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      const row = e.target.closest('.sp-row');
+      const oldName = e.target.dataset.name;
+      const newName = row.querySelector('.sp-name').value.trim();
+      if(!newName){ alert('姓名不可為空'); return; }
+      await renameSalesperson(oldName, newName);
+      showToast('已儲存'); renderSettings();
+    });
+  });
+  wrap.querySelectorAll('.sp-reset').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      const name = e.target.dataset.name;
+      const pins = {...settings.personPins}; pins[name] = '0000';
+      await saveSetting('personPins', pins);
+      showToast(`已將「${name}」的密碼重設為 0000`);
+    });
+  });
+  wrap.querySelectorAll('.sp-del').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      const name = e.target.dataset.name;
+      if(!confirm(`確定要刪除業務「${name}」嗎?(歷史紀錄不會被刪除)`)) return;
+      await saveSetting('salespeople', settings.salespeople.filter(n=>n!==name));
+      const pins = {...settings.personPins}; delete pins[name];
+      await saveSetting('personPins', pins);
+      renderSettings();
+    });
+  });
+}
+async function renameSalesperson(oldName, newName){
+  const list = settings.salespeople.map(n=> n===oldName ? newName : n);
+  await saveSetting('salespeople', list);
+  if(oldName !== newName){
+    const pins = {...settings.personPins};
+    if(pins[oldName] !== undefined){ pins[newName] = pins[oldName]; delete pins[oldName]; }
+    await saveSetting('personPins', pins);
+    const toUpdate = allVisits.filter(v=>v.salesperson===oldName);
+    for(const v of toUpdate){ await updateVisitRecord(v, { salesperson:newName }); }
+    allVisits = await fetchAllVisits();
+  }
+}
+function renderStoreRows(){
+  const wrap = document.getElementById('storeListWrap');
+  wrap.innerHTML = `
+    <div class="field">
+      <label>選擇業務員</label>
+      <select id="storeFilterPerson">
+        <option value="">請選擇</option>
+        ${settings.salespeople.map(s=>`<option value="${escapeHtml(s)}" ${s===storeMgmtPerson?'selected':''}>${escapeHtml(s)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="storeRowsWrap"></div>
+  `;
+  document.getElementById('storeFilterPerson').addEventListener('change', (e)=>{
+    storeMgmtPerson = e.target.value; renderStoreRowsList();
+  });
+  renderStoreRowsList();
+
+  function renderStoreRowsList(){
+    const listWrap = document.getElementById('storeRowsWrap');
+    if(!storeMgmtPerson){ listWrap.innerHTML = '<div class="empty">請先選擇業務員</div>'; return; }
+    const stores = uniqueSorted(allVisits.filter(v=>v.salesperson===storeMgmtPerson).map(v=>v.store));
+    listWrap.innerHTML = stores.length ? stores.map(s=>`
+      <div class="store-row">
+        <input type="text" class="store-name" value="${escapeHtml(s)}">
+        <button class="refresh-btn store-save" data-old="${escapeHtml(s)}">更新</button>
+      </div>
+    `).join('') : '<div class="empty">此業務員尚無店家紀錄</div>';
+    listWrap.querySelectorAll('.store-save').forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        const oldName = e.target.dataset.old;
+        const row = e.target.closest('.store-row');
+        const newName = row.querySelector('.store-name').value.trim();
+        if(!newName || newName===oldName) return;
+        const toUpdate = allVisits.filter(v=>v.salesperson===storeMgmtPerson && v.store===oldName);
+        for(const v of toUpdate){ await updateVisitRecord(v, { store:newName }); }
+        allVisits = await fetchAllVisits();
+        showToast('店家名稱已更新'); renderSettings();
+      });
+    });
+  }
+}
+
+// ====== init ======
+(async function init(){
+  document.getElementById('main').innerHTML = '<div class="empty">載入資料中...</div>';
+  await loadSettings();
+  allVisits = await fetchAllVisits();
+  renderForm();
+})();
+</script>
+</body>
+</html>
