@@ -80,7 +80,7 @@
 // 部署設定:請把下面這行換成你部署 Google Apps Script 後拿到的網址
 // 部署步驟請看隨附的 apps_script_code.gs 檔案開頭的說明
 // ====================================================================
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycby-V5Ke9HC9HpEQL407VTfczw715hbVlWMfhXx-HsU1iL1Hj66BAGpvejjy9gCbHl19Jg/exec';
+const API_BASE_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
 </script>
 <script>
 // ====== 靜態設定 ======
@@ -142,9 +142,20 @@ async function apiPost(payload){
   if(!res.ok) throw new Error('API 回應錯誤:' + res.status);
   return await res.json();
 }
+function formatDateDisplay(dateStr){
+  if(!dateStr) return '';
+  dateStr = String(dateStr);
+  if(dateStr.indexOf('T') === -1) return dateStr.slice(0,10);
+  // 試算表把日期欄位誤存成「日期型別」,經 UTC 轉換後會跟原本的日期差一天(台灣為UTC+8)。
+  // 這裡把它還原成當初輸入時的本地日期。
+  const d = new Date(dateStr);
+  const shifted = new Date(d.getTime() + 8*60*60*1000);
+  return shifted.toISOString().slice(0,10);
+}
 async function loadAllData(){
   const data = await apiGet('getData');
-  allVisits = (data.visits || []).slice().sort((a,b)=> new Date(b.date) - new Date(a.date));
+  allVisits = (data.visits || []).map(v=>{ v.date = formatDateDisplay(v.date); return v; })
+    .sort((a,b)=> new Date(b.date) - new Date(a.date));
   if(data.settings){
     if(data.settings.adminPassword) settings.adminPassword = data.settings.adminPassword;
     if(data.settings.salespeople && data.settings.salespeople.length) settings.salespeople = data.settings.salespeople;
