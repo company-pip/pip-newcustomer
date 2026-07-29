@@ -36,7 +36,7 @@
   .toggle-btn.type.active{background:var(--primary-light);border-color:var(--primary);color:var(--primary-dark);}
   .submit-btn, .primary-btn{width:100%;padding:14px 0;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:16px;font-weight:700;cursor:pointer;}
   .submit-btn:disabled{opacity:0.6;}
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--primary-dark);color:#fff;padding:12px 20px;border-radius:30px;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,0.2);z-index:50;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--primary-dark);color:#fff;padding:12px 20px;border-radius:30px;font-size:14px;box-shadow:0 6px 18px rgba(0,0,0,0.2);z-index:50;max-width:85%;text-align:center;}
   .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
   .stat-box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 10px;text-align:center;}
   .stat-box .num{font-family:Georgia,serif;font-size:19px;font-weight:700;color:var(--primary-dark);}
@@ -68,27 +68,23 @@
   button.input-error{background:#FFF6F4 !important;}
   .field-error{color:var(--warn);font-size:12px;margin-top:6px;font-weight:600;}
   .error-banner{background:var(--warn-light);border:1px solid var(--warn);color:var(--warn);padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:14px;font-weight:600;line-height:1.7;}
+  .setup-wrap{max-width:520px;margin:40px auto;padding:0 20px;}
+  .setup-wrap code{background:#EEF1EE;padding:2px 6px;border-radius:4px;font-size:12.5px;word-break:break-all;}
+  .setup-wrap ol{padding-left:20px;line-height:1.9;font-size:14px;}
 </style>
 </head>
 <body>
-<div class="app">
-  <header>
-    <h1>新客拜訪回報系統</h1>
-    <p>新客開發追蹤 · 資料提供給營業部統計追蹤,請如實填寫</p>
-  </header>
-  <nav class="tabs">
-    <button id="tabFormBtn" class="active">填寫紀錄</button>
-    <button id="tabMineBtn">我的成效</button>
-    <button id="tabAdminBtn">後台統計</button>
-    <button id="tabSettingsBtn">設定</button>
-  </nav>
-  <main id="main"></main>
-</div>
+<div id="root"></div>
 <script>
-// ====== 設定常數 ======
+// ====================================================================
+// 部署設定:請把下面這行換成你部署 Google Apps Script 後拿到的網址
+// 部署步驟請看隨附的 apps_script_code.gs 檔案開頭的說明
+// ====================================================================
+const API_BASE_URL = 'https://script.google.com/macros/s/AKfycby-V5Ke9HC9HpEQL407VTfczw715hbVlWMfhXx-HsU1iL1Hj66BAGpvejjy9gCbHl19Jg/exec';
+</script>
+<script>
+// ====== 靜態設定 ======
 const DEFAULT_SALESPEOPLE = ['張田裕','劉自強','楊承舜','顏廷樨','林恩霆','陳峰毓','李靜宜','黃敬凱','范振軒'];
-const STORE_KEY_PREFIX = 'visit:';
-const PHOTO_KEY_PREFIX = 'photo:';
 const TW_ZIPCODES = {
   "100":"台北市中正區","103":"台北市大同區","104":"台北市中山區","105":"台北市松山區","106":"台北市大安區","108":"台北市萬華區","110":"台北市信義區","111":"台北市士林區","112":"台北市北投區","114":"台北市內湖區","115":"台北市南港區","116":"台北市文山區",
   "200":"基隆市仁愛區","201":"基隆市信義區","202":"基隆市中正區","203":"基隆市中山區","204":"基隆市安樂區","205":"基隆市暖暖區","206":"基隆市七堵區",
@@ -114,7 +110,7 @@ const TW_ZIPCODES = {
 
 // ====== 全域狀態 ======
 let allVisits = [];
-let settings = { adminPassword:'sales2026', salespeople:[...DEFAULT_SALESPEOPLE], personPins:{}, sheetWebhookUrl:'', sheetSyncEnabled:false };
+let settings = { adminPassword:'sales2026', salespeople:[...DEFAULT_SALESPEOPLE], personPins:{} };
 let formOrdered = null;
 let formOrderType = null;
 let pendingPhotoDataUrl = null;
@@ -127,141 +123,65 @@ let monthState = { mine:'' };
 let storeMgmtPerson = '';
 let flaggedScopeVisits = {};
 
-// ====== settings storage ======
-async function loadSettings(){
-  const keys = ['adminPassword','salespeople','personPins','sheetWebhookUrl','sheetSyncEnabled'];
-  for(const k of keys){
-    try{
-      const r = await window.storage.get('settings:'+k, true);
-      if(r && r.value !== undefined) settings[k] = JSON.parse(r.value);
-    }catch(e){ /* key not set yet, keep default */ }
+// ====== 後端 API ======
+function apiConfigured(){
+  return API_BASE_URL && API_BASE_URL.indexOf('http') === 0;
+}
+async function apiGet(action){
+  const url = API_BASE_URL + (action ? ('?action=' + action) : '');
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('API 回應錯誤:' + res.status);
+  return await res.json();
+}
+async function apiPost(payload){
+  const res = await fetch(API_BASE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
+  if(!res.ok) throw new Error('API 回應錯誤:' + res.status);
+  return await res.json();
+}
+async function loadAllData(){
+  const data = await apiGet('getData');
+  allVisits = (data.visits || []).slice().sort((a,b)=> new Date(b.date) - new Date(a.date));
+  if(data.settings){
+    if(data.settings.adminPassword) settings.adminPassword = data.settings.adminPassword;
+    if(data.settings.salespeople && data.settings.salespeople.length) settings.salespeople = data.settings.salespeople;
+    if(data.settings.personPins) settings.personPins = data.settings.personPins;
   }
 }
-async function saveSetting(key, value){
-  settings[key] = value;
-  try{ await window.storage.set('settings:'+key, JSON.stringify(value), true); }
-  catch(e){ console.error('saveSetting failed', e); }
-}
-
-// ====== visit storage ======
-async function fetchAllVisits(){
-  try{
-    const listRes = await window.storage.list(STORE_KEY_PREFIX, true);
-    const keys = (listRes && listRes.keys) ? listRes.keys : [];
-    const values = await Promise.all(keys.map(async k=>{
-      try{
-        const r = await window.storage.get(k, true);
-        if(!r) return null;
-        const parsed = JSON.parse(r.value);
-        parsed._key = k;
-        return parsed;
-      }catch(e){ return null; }
-    }));
-    return values.filter(Boolean).sort((a,b)=> new Date(b.date) - new Date(a.date));
-  }catch(e){ console.error('fetchAllVisits error', e); return []; }
-}
-async function saveVisit(record, photoDataUrl){
-  const suffix = Date.now() + '-' + Math.random().toString(36).slice(2,8);
-  const id = STORE_KEY_PREFIX + suffix;
-  if(photoDataUrl){
-    const photoKey = PHOTO_KEY_PREFIX + suffix;
-    try{
-      await window.storage.set(photoKey, photoDataUrl, true);
-      record.hasPhoto = true; record.photoKey = photoKey;
-    }catch(e){ console.error('photo save failed', e); record.hasPhoto = false; record.photoKey = null; }
-  } else { record.hasPhoto = false; record.photoKey = null; }
-  const res = await window.storage.set(id, JSON.stringify(record), true);
-  if(!res) throw new Error('storage set failed');
-  record._key = id;
+async function saveVisitRemote(record, photoDataUrl){
+  const payload = Object.assign({}, record, { action:'addVisit', photoBase64: photoDataUrl || null });
+  const res = await apiPost(payload);
+  if(!res.success) throw new Error(res.error || '寫入失敗');
+  record.id = res.id;
+  record.photoUrl = res.photoUrl || '';
   return record;
 }
-async function updateVisitRecord(v, patch){
-  const updated = {...v, ...patch};
-  delete updated._key;
-  try{ await window.storage.set(v._key, JSON.stringify(updated), true); }catch(e){ console.error(e); }
+async function updateVisitRemote(id, patch){
+  const res = await apiPost({ action:'updateVisit', id, patch });
+  if(!res.success) console.error('更新失敗', res.error);
+  return res;
 }
-
-// ====== 測試資料產生 ======
-function generateTestRecords(n){
-  const storeNames = ['全家福雜貨店','松山五金行','大安早餐店','信義超市','中和文具行','板橋水果行','三重機車行','新莊麵包坊','永和飲料店','土城五金材料行','蘆洲小吃部','新店咖啡館','淡水海產店','林口便利商店','桃園五金行','鶯歌陶瓷行','三峽茶行','中壢五金百貨','八德小吃店','龜山早午餐'];
-  const reasons = ['評估中(價格因素),對方希望更優惠的批發價','同性質商品他們已進了競品A牌,賣得比我們好','店內庫存還夠,暫不進貨','老闆不在,下次拜訪再談','希望先試用樣品後再決定','資金週轉問題,下個月再評估'];
-  const products = ['潔顏乳/洗面乳系列','保養組合','新品試用組','A系列, B系列','季節限定組合',''];
-  const people = settings.salespeople.length ? settings.salespeople : DEFAULT_SALESPEOPLE;
-
-  const records = [];
-  people.forEach((sp, spIdx)=>{
-    const pool = [0,1,2,3].map(k => storeNames[(spIdx*4+k) % storeNames.length]);
-    const neverOrderStore = pool[pool.length-1]; // 讓每位業務都有一間「多次拜訪未進貨」的店,方便測試警示功能
-    for(let i=0;i<6;i++){
-      const store = pool[i % pool.length];
-      const monthsAgo = Math.floor(Math.random()*6);
-      const d = new Date();
-      d.setMonth(d.getMonth()-monthsAgo);
-      d.setDate(1 + Math.floor(Math.random()*26));
-      const dateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      const ordered = (store === neverOrderStore) ? false : (Math.random() < 0.6);
-      records.push({
-        salesperson: sp, date: dateStr, store, ordered,
-        orderAmount: ordered ? (Math.floor(Math.random()*20)+3)*1000 : null,
-        orderType: ordered ? (Math.random()<0.5 ? '切口' : '零星') : null,
-        noOrderNote: ordered ? null : reasons[Math.floor(Math.random()*reasons.length)],
-        products: products[Math.floor(Math.random()*products.length)],
-        notes: '', hasPhoto:false, photoKey:null,
-        createdAt: new Date(dateStr+'T09:00:00').toISOString()
-      });
-    }
-  });
-  // 洗牌後取前 n 筆,確保剛好 n 筆且分布隨機
-  for(let i=records.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [records[i],records[j]]=[records[j],records[i]]; }
-  return records.slice(0, n);
+async function deleteVisitRemote(id){
+  const res = await apiPost({ action:'deleteVisit', id });
+  if(!res.success) console.error('刪除失敗', res.error);
+  return res;
 }
-async function seedTestDataAndShow(){
-  const btn = document.getElementById('seedDataBtn');
-  if(btn){ btn.disabled = true; btn.textContent = '產生中...'; }
-  const drafts = generateTestRecords(50);
-  for(const rec of drafts){
-    try{
-      const saved = await saveVisit(rec, null);
-      allVisits.unshift(saved);
-    }catch(e){ console.error('測試資料寫入失敗', e); }
-  }
-  showToast('已新增50筆測試資料');
-  adminSelectedPerson = '';
-  switchTab('admin');
-}
-async function clearAllVisitData(){
-  if(!confirm('確定要清除所有拜訪紀錄嗎?此動作無法復原。')) return;
-  const toDelete = allVisits.slice();
-  for(const v of toDelete){
-    try{ await window.storage.delete(v._key, true); if(v.photoKey) await window.storage.delete(v.photoKey, true); }
-    catch(e){ console.error('刪除失敗', e); }
-  }
-  allVisits = await fetchAllVisits();
-  showToast('已清除所有拜訪紀錄');
-  renderSettings();
-}
-
-// ====== Google Sheet 同步(選填) ======
-function syncToSheet(record){
-  if(!settings.sheetSyncEnabled || !settings.sheetWebhookUrl) return;
-  fetch(settings.sheetWebhookUrl, {
-    method:'POST',
-    headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body: JSON.stringify({
-      salesperson: record.salesperson, date: record.date, store: record.store,
-      ordered: record.ordered, orderAmount: record.orderAmount || '', orderType: record.orderType || '',
-      noOrderNote: record.noOrderNote || '', products: record.products || '', notes: record.notes || '',
-      hasPhoto: !!record.hasPhoto
-    })
-  }).catch(e=>console.warn('sheet sync failed (non-blocking)', e));
+async function saveSettingRemote(key, value){
+  settings[key] = value;
+  const res = await apiPost({ action:'saveSetting', key, value });
+  if(!res.success) console.error('設定儲存失敗', res.error);
+  return res;
 }
 
 // ====== utils ======
 function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-function monthOf(dateStr){ return dateStr.slice(0,7); }
+function monthOf(dateStr){ return (dateStr||'').slice(0,7); }
 function uniqueSorted(arr){ return [...new Set(arr)].sort(); }
 function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function getReasonText(v){ return v.noOrderNote || v.reason || ''; }
+function getReasonText(v){ return v.noOrderNote || ''; }
 function lastNMonths(n){
   const arr=[]; const d=new Date(); d.setDate(1);
   for(let i=0;i<n;i++){ arr.unshift(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); d.setMonth(d.getMonth()-1); }
@@ -286,7 +206,6 @@ function computeStreaks(map){
   const results = [];
   Object.entries(map).forEach(([store, data])=>{
     const months = Object.keys(data.months).sort();
-    // walk backward from most recent month, collecting a trailing run of not-ordered months
     const trailing = [];
     for(let i=months.length-1;i>=0;i--){
       if(data.months[months[i]].ordered) break;
@@ -321,11 +240,11 @@ function storeRowsForMonths(visits, monthsList, showSalesperson){
   const map = {};
   filtered.forEach(v=>{
     const key = v.store + (showSalesperson ? ('||'+v.salesperson) : '');
-    if(!map[key]) map[key] = { store:v.store, salesperson:v.salesperson, count:0, ordered:false, lastReason:'', photoKey:null };
+    if(!map[key]) map[key] = { store:v.store, salesperson:v.salesperson, count:0, ordered:false, lastReason:'', photoUrl:'' };
     map[key].count++;
     if(v.ordered) map[key].ordered = true;
     if(!v.ordered) map[key].lastReason = getReasonText(v) || map[key].lastReason;
-    if(v.hasPhoto && v.photoKey) map[key].photoKey = v.photoKey;
+    if(v.photoUrl) map[key].photoUrl = v.photoUrl;
   });
   return Object.values(map).sort((a,b)=> b.count - a.count);
 }
@@ -362,7 +281,7 @@ function detailTableHTML(rows, showSalesperson){
           <td>${r.count}</td>
           <td>${r.ordered?'<span class="badge ok">有進貨</span>':'<span class="badge no">未進貨</span>'}</td>
           <td>${escapeHtml(r.ordered?'-':(r.lastReason||'-'))}</td>
-          <td>${r.photoKey?`<button class="refresh-btn view-photo-btn" data-key="${r.photoKey}">查看</button>`:'-'}</td>
+          <td>${r.photoUrl?`<button class="refresh-btn view-photo-btn" data-url="${escapeHtml(r.photoUrl)}">查看</button>`:'-'}</td>
         </tr>
       `).join('')}
     </tbody>
@@ -370,19 +289,13 @@ function detailTableHTML(rows, showSalesperson){
 }
 function bindPhotoButtons(){
   document.querySelectorAll('.view-photo-btn').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const key = btn.dataset.key;
-      const orig = btn.textContent; btn.textContent = '...';
-      try{ const r = await window.storage.get(key, true); if(r) openPhotoModal(r.value); }
-      catch(e){ alert('照片讀取失敗'); }
-      btn.textContent = orig;
-    });
+    btn.addEventListener('click', ()=>{ openPhotoModal(btn.dataset.url); });
   });
 }
-function openPhotoModal(dataUrl){
+function openPhotoModal(url){
   const overlay = document.createElement('div');
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;';
-  overlay.innerHTML = `<img src="${dataUrl}" style="max-width:100%;max-height:100%;border-radius:8px;">`;
+  overlay.innerHTML = `<img src="${escapeHtml(url)}" style="max-width:100%;max-height:100%;border-radius:8px;">`;
   overlay.addEventListener('click', ()=>overlay.remove());
   document.body.appendChild(overlay);
 }
@@ -410,10 +323,10 @@ function resizeImageFile(file){
 }
 function showToast(msg){
   const t = document.createElement('div'); t.className='toast'; t.textContent=msg;
-  document.body.appendChild(t); setTimeout(()=>t.remove(), 2200);
+  document.body.appendChild(t); setTimeout(()=>t.remove(), 2600);
 }
 
-// ====== 警示區塊(含拜訪紀錄查看) ======
+// ====== 警示區塊 ======
 function flaggedHTML(visits, ns, showSalesperson){
   flaggedScopeVisits[ns] = visits;
   const flagged = computeStreaks(buildStoreMonthMap(visits));
@@ -467,6 +380,59 @@ function openHistoryModal(storeName, records){
   document.getElementById('closeHistoryModal').addEventListener('click', ()=>overlay.remove());
 }
 
+// ====== 測試資料產生 ======
+function generateTestRecords(n){
+  const storeNames = ['全家福雜貨店','松山五金行','大安早餐店','信義超市','中和文具行','板橋水果行','三重機車行','新莊麵包坊','永和飲料店','土城五金材料行','蘆洲小吃部','新店咖啡館','淡水海產店','林口便利商店','桃園五金行','鶯歌陶瓷行','三峽茶行','中壢五金百貨','八德小吃店','龜山早午餐'];
+  const reasons = ['評估中(價格因素),對方希望更優惠的批發價','同性質商品他們已進了競品A牌,賣得比我們好','店內庫存還夠,暫不進貨','老闆不在,下次拜訪再談','希望先試用樣品後再決定','資金週轉問題,下個月再評估'];
+  const products = ['潔顏乳/洗面乳系列','保養組合','新品試用組','A系列, B系列','季節限定組合',''];
+  const people = settings.salespeople.length ? settings.salespeople : DEFAULT_SALESPEOPLE;
+  const records = [];
+  people.forEach((sp, spIdx)=>{
+    const pool = [0,1,2,3].map(k => storeNames[(spIdx*4+k) % storeNames.length]);
+    const neverOrderStore = pool[pool.length-1];
+    for(let i=0;i<6;i++){
+      const store = pool[i % pool.length];
+      const monthsAgo = Math.floor(Math.random()*6);
+      const d = new Date();
+      d.setMonth(d.getMonth()-monthsAgo);
+      d.setDate(1 + Math.floor(Math.random()*26));
+      const dateStr = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+      const ordered = (store === neverOrderStore) ? false : (Math.random() < 0.6);
+      records.push({
+        salesperson: sp, date: dateStr, zipCode:'', region:'', store, ordered,
+        orderAmount: ordered ? (Math.floor(Math.random()*20)+3)*1000 : null,
+        orderType: ordered ? (Math.random()<0.5 ? '切口' : '零星') : null,
+        noOrderNote: ordered ? null : reasons[Math.floor(Math.random()*reasons.length)],
+        products: products[Math.floor(Math.random()*products.length)],
+        notes: ''
+      });
+    }
+  });
+  for(let i=records.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [records[i],records[j]]=[records[j],records[i]]; }
+  return records.slice(0, n);
+}
+async function seedTestDataAndShow(){
+  const btn = document.getElementById('seedDataBtn');
+  const drafts = generateTestRecords(50);
+  for(let i=0;i<drafts.length;i++){
+    if(btn) btn.textContent = `產生中... (${i+1}/${drafts.length})`;
+    try{ await saveVisitRemote(drafts[i], null); }
+    catch(e){ console.error('測試資料寫入失敗', e); }
+  }
+  await loadAllData();
+  showToast('已新增50筆測試資料');
+  adminSelectedPerson = '';
+  switchTab('admin');
+}
+async function clearAllVisitData(){
+  if(!confirm('確定要清除所有拜訪紀錄嗎?此動作無法復原(照片檔案不會自動從雲端硬碟刪除)。')) return;
+  const toDelete = allVisits.slice();
+  for(const v of toDelete){ await deleteVisitRemote(v.id); }
+  await loadAllData();
+  showToast('已清除所有拜訪紀錄');
+  renderSettings();
+}
+
 // ====== tabs ======
 function switchTab(tab){
   document.getElementById('tabFormBtn').classList.toggle('active', tab==='form');
@@ -478,10 +444,6 @@ function switchTab(tab){
   else if(tab==='admin') renderAdmin();
   else renderSettings();
 }
-document.getElementById('tabFormBtn').addEventListener('click', ()=>switchTab('form'));
-document.getElementById('tabMineBtn').addEventListener('click', ()=>switchTab('mine'));
-document.getElementById('tabAdminBtn').addEventListener('click', ()=>switchTab('admin'));
-document.getElementById('tabSettingsBtn').addEventListener('click', ()=>switchTab('settings'));
 
 // ====== 填寫紀錄 ======
 function renderForm(){
@@ -562,7 +524,6 @@ function renderForm(){
     const region = TW_ZIPCODES[val];
     if(region) regionInput.value = region;
   });
-
   document.getElementById('fSalesperson').addEventListener('change', (e)=> updateStoreOptions(e.target.value));
   document.getElementById('fStoreSelect').addEventListener('change', (e)=>{
     document.getElementById('fStoreNew').style.display = e.target.value==='__new__' ? 'block' : 'none';
@@ -649,26 +610,24 @@ async function handleSubmit(){
   } else if(formOrdered === false){
     noOrderNote = document.getElementById('fNoOrderNote').value.trim();
     if(!noOrderNote){ errors.push('未進貨原因說明'); markFieldError('fNoOrderNote'); }
-    else orderType = null;
   }
 
   if(errors.length){ showFormErrors(errors); return; }
 
-  const record = { salesperson, date, store, zipCode, region, ordered:formOrdered, orderAmount, orderType, noOrderNote, products, notes, createdAt:new Date().toISOString() };
+  const record = { salesperson, date, store, zipCode, region, ordered:formOrdered, orderAmount, orderType, noOrderNote, products, notes };
 
   const btn = document.getElementById('submitBtn');
-  btn.disabled=true; btn.textContent='送出中...';
+  btn.disabled=true; btn.textContent='上傳中,請稍候...';
   try{
-    const saved = await saveVisit(record, pendingPhotoDataUrl);
+    const saved = await saveVisitRemote(record, pendingPhotoDataUrl);
     allVisits.unshift(saved);
     myLastSalesperson = salesperson;
-    syncToSheet(saved);
     showToast('已送出拜訪回報');
     formOrdered=null; formOrderType=null; pendingPhotoDataUrl=null;
     renderForm();
   }catch(e){
     console.error(e);
-    showFormErrors(['送出失敗,請檢查網路後重試']);
+    showFormErrors(['送出失敗,請檢查網路或 API 設定後重試(' + e.message + ')']);
     btn.disabled=false; btn.textContent='送出回報';
   }
 }
@@ -695,7 +654,7 @@ function bindStatsEvents(ns, rerenderFn){
   if(sel) sel.addEventListener('change', (e)=>{ monthState[ns] = e.target.value; rerenderFn(); });
   const refreshBtn = document.querySelector(`[data-refresh="${ns}"]`);
   if(refreshBtn) refreshBtn.addEventListener('click', async ()=>{
-    refreshBtn.textContent='載入中...'; allVisits = await fetchAllVisits(); rerenderFn();
+    refreshBtn.textContent='載入中...'; await loadAllData(); rerenderFn();
   });
 }
 function statHeaderHTML(ns, monthOptions, selMonth){
@@ -735,7 +694,6 @@ function renderMineStatsHTML(visits){
     <div class="section-title" style="margin-top:0;"><span class="dot"></span>近3個月新店家拜訪趨勢</div>
     <div class="card">${chart}</div>
     ${flaggedHTML(visits, 'mine', false)}
-
     <div class="section-title"><span class="dot"></span>依月份查詢明細</div>
     ${statHeaderHTML(ns, monthOptions, selMonth)}
     <div class="stat-grid">
@@ -778,7 +736,7 @@ function renderMine(){
       <div class="card lock-wrap">
         <div class="icon">🔒</div>
         <div style="font-weight:700;">請輸入你的個人密碼</div>
-        <div class="note">忘記密碼請洽主管在後台「設定」重設為 0000</div>
+        <div class="note">忘記密碼請洽營業部協助重置</div>
         <input type="password" id="minePwd" placeholder="輸入個人密碼">
         <div id="minePwdError" class="field-error" style="display:none;"></div>
         <button class="primary-btn" id="mineLoginBtn" style="max-width:220px;margin:8px auto 0;">登入</button>
@@ -818,7 +776,7 @@ function renderMine(){
       const val = document.getElementById('mineNewPwd').value.trim();
       if(!val){ alert('請輸入新密碼'); return; }
       const pins = {...settings.personPins}; pins[mineSelectedName] = val;
-      await saveSetting('personPins', pins);
+      await saveSettingRemote('personPins', pins);
       showToast('密碼已更新'); document.getElementById('mineNewPwd').value='';
     });
     bindStatsEvents('mine', renderMinePanel);
@@ -898,7 +856,7 @@ function renderAdmin(){
   document.getElementById('adminLogoutBtn').addEventListener('click', ()=>{ adminUnlocked=false; switchTab('form'); });
   document.getElementById('adminRefreshBtn').addEventListener('click', async ()=>{
     document.getElementById('adminRefreshBtn').textContent='載入中...';
-    allVisits = await fetchAllVisits();
+    await loadAllData();
     renderAdmin();
   });
   bindFlaggedButtons();
@@ -939,6 +897,12 @@ function renderSettings(){
     </div>
 
     <div class="card">
+      <div class="section-title" style="margin-top:0;"><span class="dot"></span>資料庫連線狀態</div>
+      <div class="note">目前資料儲存於 Google 試算表(透過 Apps Script API),網址:<br><code style="word-break:break-all;">${escapeHtml(API_BASE_URL)}</code></div>
+      <button class="refresh-btn" id="testApiBtn" style="margin-top:10px;">測試連線</button>
+    </div>
+
+    <div class="card">
       <div class="section-title" style="margin-top:0;"><span class="dot"></span>修改後台密碼</div>
       <div class="field"><input type="password" id="newAdminPwd" placeholder="輸入新密碼"></div>
       <button class="primary-btn" id="saveAdminPwdBtn">更新密碼</button>
@@ -963,25 +927,8 @@ function renderSettings(){
     </div>
 
     <div class="card">
-      <div class="section-title" style="margin-top:0;"><span class="dot"></span>Google 表單串接(選填)</div>
-      <div class="note">部署 Google Apps Script 後,將產生的網址貼在下方,即可讓每筆拜訪紀錄自動同步一份到 Google Sheet(依業務姓名分頁存檔)。</div>
-      <div class="field" style="margin-top:10px;">
-        <label>Apps Script 網址</label>
-        <input type="text" id="sheetUrlInput" placeholder="https://script.google.com/macros/s/xxx/exec" value="${escapeHtml(settings.sheetWebhookUrl)}">
-      </div>
-      <div class="field" style="display:flex;align-items:center;gap:8px;">
-        <input type="checkbox" id="sheetSyncToggle" style="width:auto;" ${settings.sheetSyncEnabled?'checked':''}>
-        <label style="margin:0;">啟用自動同步</label>
-      </div>
-      <div style="display:flex;gap:8px;">
-        <button class="primary-btn" id="saveSheetBtn">儲存設定</button>
-        <button class="refresh-btn" id="testSheetBtn">測試連線</button>
-      </div>
-    </div>
-
-    <div class="card">
       <div class="section-title" style="margin-top:0;"><span class="dot" style="background:var(--warn);"></span>測試資料(僅供測試,正式上線前建議清除)</div>
-      <div class="note">產生50筆隨機拜訪紀錄(涵蓋近6個月、9位業務、多間店家),方便測試統計與畫面呈現。產生後會自動跳到後台統計讓你查看結果。</div>
+      <div class="note">產生50筆隨機拜訪紀錄(涵蓋近6個月、9位業務、多間店家),方便測試統計與畫面呈現。由於現在資料是寫入 Google 試算表,產生過程會需要一點時間。</div>
       <div style="display:flex;gap:8px;margin-top:10px;">
         <button class="primary-btn" id="seedDataBtn" style="flex:1;">產生50筆測試資料</button>
         <button class="refresh-btn" id="clearTestDataBtn">清除所有拜訪資料</button>
@@ -990,12 +937,23 @@ function renderSettings(){
   `;
 
   document.getElementById('settingsLogoutBtn').addEventListener('click', ()=>{ adminUnlocked=false; switchTab('form'); });
+  document.getElementById('testApiBtn').addEventListener('click', async ()=>{
+    const btn = document.getElementById('testApiBtn');
+    btn.textContent = '測試中...';
+    try{
+      const res = await apiGet('');
+      showToast('連線成功:' + (res.message || 'OK'));
+    }catch(e){
+      showToast('連線失敗:' + e.message);
+    }
+    btn.textContent = '測試連線';
+  });
   document.getElementById('seedDataBtn').addEventListener('click', seedTestDataAndShow);
   document.getElementById('clearTestDataBtn').addEventListener('click', clearAllVisitData);
   document.getElementById('saveAdminPwdBtn').addEventListener('click', async ()=>{
     const val = document.getElementById('newAdminPwd').value.trim();
     if(!val){ alert('請輸入新密碼'); return; }
-    await saveSetting('adminPassword', val);
+    await saveSettingRemote('adminPassword', val);
     showToast('密碼已更新'); document.getElementById('newAdminPwd').value='';
   });
   document.getElementById('addSalespersonBtn').addEventListener('click', async ()=>{
@@ -1003,24 +961,8 @@ function renderSettings(){
     const name = nameInput.value.trim();
     if(!name) return;
     if(settings.salespeople.includes(name)){ alert('此姓名已存在'); return; }
-    await saveSetting('salespeople', [...settings.salespeople, name]);
+    await saveSettingRemote('salespeople', [...settings.salespeople, name]);
     renderSettings();
-  });
-  document.getElementById('saveSheetBtn').addEventListener('click', async ()=>{
-    const url = document.getElementById('sheetUrlInput').value.trim();
-    const enabled = document.getElementById('sheetSyncToggle').checked;
-    await saveSetting('sheetWebhookUrl', url);
-    await saveSetting('sheetSyncEnabled', enabled);
-    showToast('已儲存 Google 表單設定');
-  });
-  document.getElementById('testSheetBtn').addEventListener('click', async ()=>{
-    const url = document.getElementById('sheetUrlInput').value.trim();
-    if(!url){ alert('請先輸入網址'); return; }
-    try{
-      await fetch(url, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify({ salesperson:'測試', date: todayStr(), store:'測試店家', ordered:true, orderAmount:100, orderType:'零星', noOrderNote:'', products:'測試產品', notes:'這是測試資料', hasPhoto:false }) });
-      showToast('已送出測試資料,請至 Google Sheet 確認');
-    }catch(e){ console.error(e); alert('連線失敗,請確認網址是否正確、Apps Script 是否已部署為「所有人」可存取'); }
   });
 
   renderSalespeopleRows();
@@ -1051,7 +993,7 @@ function renderSalespeopleRows(){
     btn.addEventListener('click', async (e)=>{
       const name = e.target.dataset.name;
       const pins = {...settings.personPins}; pins[name] = '0000';
-      await saveSetting('personPins', pins);
+      await saveSettingRemote('personPins', pins);
       showToast(`已將「${name}」的密碼重設為 0000`);
     });
   });
@@ -1059,23 +1001,23 @@ function renderSalespeopleRows(){
     btn.addEventListener('click', async (e)=>{
       const name = e.target.dataset.name;
       if(!confirm(`確定要刪除業務「${name}」嗎?(歷史紀錄不會被刪除)`)) return;
-      await saveSetting('salespeople', settings.salespeople.filter(n=>n!==name));
+      await saveSettingRemote('salespeople', settings.salespeople.filter(n=>n!==name));
       const pins = {...settings.personPins}; delete pins[name];
-      await saveSetting('personPins', pins);
+      await saveSettingRemote('personPins', pins);
       renderSettings();
     });
   });
 }
 async function renameSalesperson(oldName, newName){
   const list = settings.salespeople.map(n=> n===oldName ? newName : n);
-  await saveSetting('salespeople', list);
+  await saveSettingRemote('salespeople', list);
   if(oldName !== newName){
     const pins = {...settings.personPins};
     if(pins[oldName] !== undefined){ pins[newName] = pins[oldName]; delete pins[oldName]; }
-    await saveSetting('personPins', pins);
+    await saveSettingRemote('personPins', pins);
     const toUpdate = allVisits.filter(v=>v.salesperson===oldName);
-    for(const v of toUpdate){ await updateVisitRecord(v, { salesperson:newName }); }
-    allVisits = await fetchAllVisits();
+    for(const v of toUpdate){ await updateVisitRemote(v.id, { salesperson:newName }); }
+    await loadAllData();
   }
 }
 function renderStoreRows(){
@@ -1112,20 +1054,65 @@ function renderStoreRows(){
         const newName = row.querySelector('.store-name').value.trim();
         if(!newName || newName===oldName) return;
         const toUpdate = allVisits.filter(v=>v.salesperson===storeMgmtPerson && v.store===oldName);
-        for(const v of toUpdate){ await updateVisitRecord(v, { store:newName }); }
-        allVisits = await fetchAllVisits();
+        for(const v of toUpdate){ await updateVisitRemote(v.id, { store:newName }); }
+        await loadAllData();
         showToast('店家名稱已更新'); renderSettings();
       });
     });
   }
 }
 
+// ====== 尚未設定 API 的提示畫面 ======
+function renderSetupNeeded(){
+  document.getElementById('root').innerHTML = `
+    <div class="setup-wrap">
+      <h2 style="font-family:Georgia,serif;color:var(--primary-dark);">還差一步:設定資料庫連線</h2>
+      <p style="color:var(--muted);font-size:14px;line-height:1.7;">
+        這個系統需要連到你自己的 Google 試算表當資料庫。目前 <code>API_BASE_URL</code> 還是預設的佔位文字,系統暫時無法讀寫資料。
+      </p>
+      <ol>
+        <li>開一個新的 Google 試算表</li>
+        <li>「擴充功能」→「Apps Script」,貼上隨附的 <code>apps_script_code.gs</code> 內容</li>
+        <li>「部署」→「新增部署作業」→ 網頁應用程式,執行身分選「我」,存取權選「任何人」</li>
+        <li>複製部署後拿到的網址</li>
+        <li>回到這個 HTML 檔案,把最上方 <code>const API_BASE_URL = '...'</code> 換成你剛複製的網址</li>
+        <li>存檔後重新整理這個頁面</li>
+      </ol>
+    </div>
+  `;
+}
+
 // ====== init ======
 (async function init(){
-  document.getElementById('main').innerHTML = '<div class="empty">載入資料中...</div>';
-  await loadSettings();
-  allVisits = await fetchAllVisits();
-  renderForm();
+  document.getElementById('root').innerHTML = `
+    <div class="app">
+      <header>
+        <h1>新客拜訪回報系統</h1>
+        <p>新客開發追蹤 · 資料提供給營業部統計追蹤,請如實填寫</p>
+      </header>
+      <nav class="tabs">
+        <button id="tabFormBtn" class="active">填寫紀錄</button>
+        <button id="tabMineBtn">我的成效</button>
+        <button id="tabAdminBtn">後台統計</button>
+        <button id="tabSettingsBtn">設定</button>
+      </nav>
+      <main id="main"><div class="empty">載入資料中...</div></main>
+    </div>
+  `;
+  if(!apiConfigured()){ renderSetupNeeded(); return; }
+
+  document.getElementById('tabFormBtn').addEventListener('click', ()=>switchTab('form'));
+  document.getElementById('tabMineBtn').addEventListener('click', ()=>switchTab('mine'));
+  document.getElementById('tabAdminBtn').addEventListener('click', ()=>switchTab('admin'));
+  document.getElementById('tabSettingsBtn').addEventListener('click', ()=>switchTab('settings'));
+
+  try{
+    await loadAllData();
+    renderForm();
+  }catch(e){
+    console.error(e);
+    document.getElementById('main').innerHTML = `<div class="error-banner" style="display:block;">資料載入失敗:${escapeHtml(e.message)}<br>請確認 API_BASE_URL 是否正確、Apps Script 是否已部署為「任何人」可存取。</div>`;
+  }
 })();
 </script>
 </body>
